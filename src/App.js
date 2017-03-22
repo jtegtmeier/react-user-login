@@ -52,12 +52,12 @@ class App extends Component {
     base.createUser({
       email: this.refs.signup_email.value,
       password: this.verifySamePassword(this.refs.signup_pw1.value, this.refs.signup_pw2.value)
-    }, this.handleSignup)
+    }, this.handleSignup.bind(this))
   }
 
   handleSignup(error, user) {
     if (error) {
-      console.log("error" : error)
+      console.log(error)
     } else {
       console.log("user: ", user)
       this.sendEmailVerification()
@@ -66,7 +66,7 @@ class App extends Component {
 
   sendEmailVerification() {
     if (base.auth().currentUser) {
-      base.auth().currentUser.sendEmailVerification().then(function() {
+      base.auth().currentUser.sendEmailVerification().then(() => {
         this.setAuthMsg('Email Verification Sent!')
       })
     }
