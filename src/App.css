@@ -4,18 +4,18 @@
   align-items: center;
 }
 
-.create-user-box{
+.create-user-box {
   display: flex;
   flex-flow: column;
   margin: 10px;
 }
 
-.login-box{
+.login-box {
   display: flex;
   flex-flow: column;
   margin: 10px;
 }
 
-.message-box{
+.message-box {
   margin: 10px;
 }
