@@ -7,21 +7,57 @@ import rebaseOptions from './rebaseOptions.json'
 
 let base = Rebase.createClass(rebaseOptions)
 
+function timeNow() {
+  let d = new Date()
+  let h = (d.getHours() < 10
+    ? '0'
+    : '') + d.getHours()
+  let m = (d.getMinutes() < 10
+    ? '0'
+    : '') + d.getMinutes();
+  return h + ':' + m;
+}
+
 class App extends Component {
+  constructor(props) {
+    super(props)
+    this.state = {}
+  }
+
+  componentDidMount() {
+    this.syncState()
+    base.onAuth((function() {
+      this.syncState()
+    }).bind(this))
+  }
+
+  syncState() {
+    base.syncState(`authUserChanges`, {
+      context: this,
+      state: 'authUserChanges',
+      asArray: true
+    })
+  }
 
   handleSubmitSignup(evt) {
     evt.preventDefault()
     base.createUser({
       email: this.refs.signup_email.value,
       password: this.verifySamePassword(this.refs.signup_pw1.value, this.refs.signup_pw2.value)
-    }, this.userHandler)
+    }, this.handleSignup)
   }
 
-  userHandler(error, user) {
+  handleSignup(error, user) {
     if (error) {
-      console.log(error)
+      console.log("error" : error)
     } else {
       console.log("user: ", user)
+      this.sendEmailVerification()
+    }
+  }
+
+  sendEmailVerification() {
+    if (base.auth().currentUser) {
       base.auth().currentUser.sendEmailVerification().then(function() {
         alert('Email Verification Sent!')
       })
@@ -33,14 +69,20 @@ class App extends Component {
     base.authWithPassword({
       email: this.refs.login_email.value,
       password: this.refs.login_password.value
-    }, this.authHandler)
+    }, this.handleAuth.bind(this))
   }
 
-  authHandler(error, user) {
+  handleAuth(error, user) {
     if (error) {
-      console.log(error)
+      console.log("error", error)
+    } else {
+      if (user.emailVerified) {
+        alert(user.email + ' signed in and email verifyed!')
+        this.syncState()
+      } else {
+        alert(user.email + ' signed in but not verifyed!')
+      }
     }
-    console.log("user: ", user)
   }
 
   verifySamePassword(pw1, pw2) {
@@ -50,9 +92,35 @@ class App extends Component {
     return undefined
   }
 
+  handleResendVerificationClick(evt) {
+    evt.preventDefault()
+    this.sendEmailVerification()
+  }
+
+  handleDBChangeClick(evt) {
+    if (base.auth().currentUser.emailVerified) {
+      base.push('authUserChanges', {
+        data: {
+          user: base.auth().currentUser.email,
+          time: timeNow()
+        }
+      })
+    }
+  }
+
+  handleLogoutClick(evt) {
+    evt.preventDefault()
+    base.unauth()
+    alert('Logged out!')
+  }
+
   render() {
     return (
       <div className="App">
+        <input type="button" style={{
+          alignSelf: "flex-end",
+          margin: "5px"
+        }} ref="btn_logout" onClick={this.handleLogoutClick.bind(this)} value="Logout"/>
         <form className="create-user-box" onSubmit={this.handleSubmitSignup.bind(this)}>
           <div>Sign Up:</div>
           <lable>Email:
@@ -71,7 +139,17 @@ class App extends Component {
             <input type="password" required ref="login_password"/></lable>
           <input type="submit" value="Submit"/>
         </form>
-        <div className="message-box"></div>
+        <div className="authenticated-area" style={{
+          border: "1px solid black",
+          padding: "5px"
+        }}>
+          <label>Authenticated Area</label><br/>
+          <input type="button" ref="btn_verification" onClick={this.handleResendVerificationClick.bind(this)} value="resend verificaton email"/>
+          <input type="button" ref="btn_db_change" onClick={this.handleDBChangeClick.bind(this)} value="make authenticated database change"/>
+          <div className="authenticated-msg" style={{
+            height: "20px"
+          }}></div>
+        </div>
       </div>
     )
   }
