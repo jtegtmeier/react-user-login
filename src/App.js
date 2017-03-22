@@ -7,6 +7,11 @@ import rebaseOptions from './rebaseOptions.json'
 
 let base = Rebase.createClass(rebaseOptions)
 
+let initialState = {
+  authUserChanges: [],
+  authMsg: ""
+}
+
 function timeNow() {
   let d = new Date()
   let h = (d.getHours() < 10
@@ -21,21 +26,24 @@ function timeNow() {
 class App extends Component {
   constructor(props) {
     super(props)
-    this.state = {}
+    this.state = initialState
   }
 
   componentDidMount() {
-    this.syncState()
-    base.onAuth((function() {
-      this.syncState()
-    }).bind(this))
-  }
-
-  syncState() {
-    base.syncState(`authUserChanges`, {
-      context: this,
-      state: 'authUserChanges',
-      asArray: true
+    base.onAuth((user) => {
+      if (user === null) {
+        if (this.bindingRef) {
+          base.removeBinding(this.bindingRef);
+          delete this.bindingRef;
+        }
+        this.setState(initialState)
+      } else {
+        this.bindingRef = base.syncState(`authUserChanges`, {
+          context: this,
+          state: 'authUserChanges',
+          asArray: true
+        })
+      }
     })
   }
 
@@ -59,7 +67,7 @@ class App extends Component {
   sendEmailVerification() {
     if (base.auth().currentUser) {
       base.auth().currentUser.sendEmailVerification().then(function() {
-        alert('Email Verification Sent!')
+        this.setAuthMsg('Email Verification Sent!')
       })
     }
   }
@@ -77,10 +85,9 @@ class App extends Component {
       console.log("error", error)
     } else {
       if (user.emailVerified) {
-        alert(user.email + ' signed in and email verifyed!')
-        this.syncState()
+        this.setAuthMsg(user.email + ' signed in and email verifyed!')
       } else {
-        alert(user.email + ' signed in but not verifyed!')
+        this.setAuthMsg(user.email + ' signed in but not verifyed!')
       }
     }
   }
@@ -98,12 +105,9 @@ class App extends Component {
   }
 
   handleDBChangeClick(evt) {
-    if (base.auth().currentUser.emailVerified) {
-      base.push('authUserChanges', {
-        data: {
-          user: base.auth().currentUser.email,
-          time: timeNow()
-        }
+    if (base.auth().currentUser && base.auth().currentUser.emailVerified) {
+      this.setState({
+        authUserChanges: this.state.authUserChanges.concat({user: base.auth().currentUser.email, time: timeNow()})
       })
     }
   }
@@ -111,18 +115,23 @@ class App extends Component {
   handleLogoutClick(evt) {
     evt.preventDefault()
     base.unauth()
-    alert('Logged out!')
+    this.setAuthMsg('Logged out!')
+  }
+
+  setAuthMsg(msg) {
+    this.setState({authMsg: msg})
   }
 
   render() {
     return (
       <div className="App">
+        <h2>Firebase User Authentication Using Re-base and React</h2>
         <input type="button" style={{
           alignSelf: "flex-end",
           margin: "5px"
         }} ref="btn_logout" onClick={this.handleLogoutClick.bind(this)} value="Logout"/>
         <form className="create-user-box" onSubmit={this.handleSubmitSignup.bind(this)}>
-          <div>Sign Up:</div>
+          <h4>Sign Up:</h4>
           <lable>Email:
             <input type="email" required ref="signup_email"/></lable>
           <lable>Password:
@@ -132,7 +141,7 @@ class App extends Component {
           <input type="submit" value="Submit"/>
         </form>
         <form className="login-box" onSubmit={this.handleSubmitLogin.bind(this)}>
-          <div>Login:</div>
+          <h4>Login:</h4>
           <lable>Email:
             <input type="email" required ref="login_email"/></lable>
           <lable>Password:
@@ -141,14 +150,21 @@ class App extends Component {
         </form>
         <div className="authenticated-area" style={{
           border: "1px solid black",
-          padding: "5px"
+          padding: "5px",
+          margin: "10px"
         }}>
-          <label>Authenticated Area</label><br/>
+          <h4>Authenticated Area</h4>
           <input type="button" ref="btn_verification" onClick={this.handleResendVerificationClick.bind(this)} value="resend verificaton email"/>
           <input type="button" ref="btn_db_change" onClick={this.handleDBChangeClick.bind(this)} value="make authenticated database change"/>
           <div className="authenticated-msg" style={{
-            height: "20px"
-          }}></div>
+            height: "40px",
+            margin: "10px"
+          }}>{this.state.authMsg}</div>
+          <div className="authenticated-db-list">
+            {this.state.authUserChanges.map((item, index) => <div key={index} className="db-item">
+              {item.user + " " + item.time}
+            </div>)}
+          </div>
         </div>
       </div>
     )
